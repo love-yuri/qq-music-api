@@ -24,21 +24,31 @@ set(CMAKE_EXPERIMENTAL_CXX_MODULE_DYNDEP 1)
 
 # packages
 find_package(CURL REQUIRED)
+find_package(glaze CONFIG REQUIRED)
 
 file(GLOB IXX_MODULES
     ${PROJECT_SOURCE_DIR}/*.ixx
     ${PROJECT_SOURCE_DIR}/include/*.ixx
+    ${PROJECT_SOURCE_DIR}/include/modules/*.ixx
 )
 
 file(GLOB_RECURSE PROJECT_SOURCES
     CONFIGURE_DEPENDS
     ${IXX_MODULES}
     "${CMAKE_SOURCE_DIR}/include/*.hpp"
+    "${CMAKE_SOURCE_DIR}/include/utils/*.hpp"
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
 
 # 使用 STATIC 库
 add_library(${PROJECT_NAME} STATIC ${PROJECT_SOURCES})
+
+# include and link
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    CURL::libcurl
+    glaze::glaze
+)
 
 # Modules
 target_sources(${PROJECT_NAME}
@@ -48,9 +58,10 @@ target_sources(${PROJECT_NAME}
 )
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_SCAN_FOR_MODULES ON)
 
-# include and link
-target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
+# 编译选项
+if(MSVC)
+  target_compile_options(${PROJECT_NAME} PUBLIC /Zc:preprocessor)
+endif()
 
 # example_main
 add_executable(example_main examples/main.cpp)
