@@ -16,7 +16,7 @@ module;
 export module curl;
 
 export class Curl {
-  std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl{ nullptr, curl_easy_cleanup };
+  std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl{nullptr, curl_easy_cleanup};
 
   std::string response_data{};
 
@@ -63,9 +63,50 @@ public:
     return response_data;
   }
 
+  /**
+   * @return curl指针
+   */
+  CURL *get() {
+    return curl.get();
+  }
+
   // 禁止拷贝，允许移动
   Curl(const Curl &) = delete;
   Curl &operator=(const Curl &) = delete;
   Curl(Curl &&) = default;
   Curl &operator=(Curl &&) = default;
 };
+
+export namespace curl {
+
+using Header = std::vector<std::pair<std::string_view, std::string_view>>;
+
+std::string get(const std::string_view url, const Header &headers_map = {}) {
+  Curl curl_ptr;
+  const auto curl = curl_ptr.get();
+
+  curl_easy_setopt(curl, CURLOPT_URL, url.data());
+
+  // header
+  std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)> headers {
+    nullptr,
+    curl_slist_free_all
+  };
+
+  if (!headers_map.empty()) {
+    curl_slist *raw_headers = nullptr;
+    for (auto &[k, v] : headers_map) {
+      std::string h = std::format("{}: {}", k, v);
+      raw_headers = curl_slist_append(raw_headers, h.c_str());
+    }
+
+    // 设置 content-type
+    raw_headers = curl_slist_append(raw_headers, "Content-Type: application/x-www-form-urlencoded");
+
+    headers.reset(raw_headers);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers.get());
+  }
+
+  return curl_ptr.commit();
+}
+} // namespace curl
