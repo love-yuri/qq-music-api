@@ -6,11 +6,12 @@
  */
 module;
 
-#include "yuri_log.hpp"
+#include "../yuri_log.hpp"
 #include <curl/curl.h>
 #include <memory>
 #include <string>
 #include <string_view>
+#include "glaze/glaze.hpp"
 
 export module curl;
 
