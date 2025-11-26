@@ -11,6 +11,7 @@
 constexpr glz::opts options = {
   .comments = true,               // 允许包含注释
   .error_on_unknown_keys = false, // 忽略未知键
+  .error_on_missing_keys = false, // 忽略缺少key
 };
 
 template <glz::read_supported<glz::JSON> T, glz::is_buffer Buffer>
