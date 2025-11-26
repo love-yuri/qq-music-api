@@ -18,7 +18,7 @@ export module curl;
 export class Curl {
   std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl{nullptr, curl_easy_cleanup};
 
-  std::string response_data{};
+  std::string response_data{}; // 结果
 
   // 回调函数，用于接收数据
   static size_t WriteCallback(const char *contents, const size_t size, const size_t nmemb, Curl *request) {
@@ -26,6 +26,10 @@ export class Curl {
     request->response_data.append(contents, total_size);
     return total_size;
   }
+
+public:
+  explicit Curl() = default;
+  virtual ~Curl() = default;
 
   // 初始化操作
   bool init() {
@@ -46,11 +50,6 @@ export class Curl {
     return true;
   }
 
-public:
-  Curl() {
-    init();
-  }
-
   /**
    * 调用请求并获取返回值
    * @return 接收的字符串
@@ -66,7 +65,7 @@ public:
   /**
    * @return curl指针
    */
-  CURL *get() {
+  [[nodiscard]] CURL *get() const {
     return curl.get();
   }
 
@@ -78,19 +77,26 @@ public:
 };
 
 export namespace curl {
+using KeyValueList = std::vector<std::pair<std::string_view, std::string_view>>;
 
-using Header = std::vector<std::pair<std::string_view, std::string_view>>;
-
-std::string get(const std::string_view url, const Header &headers_map = {}) {
+std::string get(
+  const std::string_view url,
+  const KeyValueList &headers_map = {},
+  const KeyValueList &params_map = {}
+) {
   Curl curl_ptr;
+  if (not curl_ptr.init()) {
+    return {};
+  }
+
   const auto curl = curl_ptr.get();
 
   curl_easy_setopt(curl, CURLOPT_URL, url.data());
 
   // header
-  std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)> headers {
+  std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)> headers{
     nullptr,
-    curl_slist_free_all
+    curl_slist_free_all,
   };
 
   if (!headers_map.empty()) {
@@ -106,6 +112,21 @@ std::string get(const std::string_view url, const Header &headers_map = {}) {
     headers.reset(raw_headers);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers.get());
   }
+
+  return curl_ptr.commit();
+}
+
+std::string post(const std::string_view url, const std::string_view data) {
+  Curl curl_ptr;
+  if (not curl_ptr.init()) {
+    return {};
+  }
+
+  const auto curl = curl_ptr.get();
+
+  curl_easy_setopt(curl, CURLOPT_URL, url.data());
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.data());
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, data.size());
 
   return curl_ptr.commit();
 }
