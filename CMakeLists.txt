@@ -29,6 +29,7 @@ find_package(glaze CONFIG REQUIRED)
 file(GLOB IXX_MODULES
     ${PROJECT_SOURCE_DIR}/*.ixx
     ${PROJECT_SOURCE_DIR}/include/*.ixx
+    ${PROJECT_SOURCE_DIR}/include/api_results/*.ixx
     ${PROJECT_SOURCE_DIR}/include/modules/*.ixx
 )
 
@@ -36,6 +37,7 @@ file(GLOB_RECURSE PROJECT_SOURCES
     CONFIGURE_DEPENDS
     ${IXX_MODULES}
     "${CMAKE_SOURCE_DIR}/include/*.hpp"
+    "${CMAKE_SOURCE_DIR}/include/api/*.hpp"
     "${CMAKE_SOURCE_DIR}/include/utils/*.hpp"
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
@@ -66,3 +68,13 @@ endif()
 # example_main
 add_executable(example_main examples/main.cpp)
 target_link_libraries(example_main PRIVATE ${PROJECT_NAME})
+
+# 自动复制script
+add_custom_command(
+    TARGET example_main POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/script"
+    "$<TARGET_FILE_DIR:example_main>/script"
+    COMMENT "Copying script directory to executable output directory..."
+)
+
