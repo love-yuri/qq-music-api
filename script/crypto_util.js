@@ -1428,14 +1428,13 @@ if (type === 'sign') {
 }
 
 if (type === 'encrypt') {
-    const value = fs.readFile(arg_file_path);
+    const value = fs.readFileSync(arg_file_path);
     ae(JSON.stringify(JSON.parse(value))).then(e => {
         process.stdout.write(e);
     });
 }
 
 if (type === 'decrypt') {
-    const value = fs.readFile(arg_file_path);
-    const arrayBuffer = Uint8Array.from(value.replace(' ', '').split(',')).buffer;
-    process.stdout.write(se(arrayBuffer));
+    const value = fs.readFileSync(arg_file_path);
+    process.stdout.write(se(value));
 }
