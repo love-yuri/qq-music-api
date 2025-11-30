@@ -46,9 +46,31 @@ std::string execute(const std::string_view cmd) {
  * @param data 发送data
  */
 std::string get_sign(const std::string_view data) {
-  // 写入参数/**/
+  // 写入参数
   (std::fstream(temp_filepath, std::ios::out) << data).flush();
   const auto cmd = std::format("{} sign", crypto_utils_path);
+  return execute(cmd);
+}
+
+/**
+ * 获取加密后的data
+ * @param data 发送data
+ */
+std::string get_encrypt(const std::string_view data) {
+  // 写入参数
+  (std::fstream(temp_filepath, std::ios::out) << data).flush();
+  const auto cmd = std::format("{} encrypt", crypto_utils_path);
+  return execute(cmd);
+}
+
+/**
+ * 将数据解密
+ * @param data 发送data
+ */
+std::string get_decrypt(const std::string_view data) {
+  // 写入参数
+  (std::fstream(temp_filepath, std::ios::out) << data).flush();
+  const auto cmd = std::format("{} decrypt", crypto_utils_path);
   return execute(cmd);
 }
 
