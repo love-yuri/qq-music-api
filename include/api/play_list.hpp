@@ -22,7 +22,7 @@ inline UserPlaylistsResult get_user_playlists(int size = 11) {
       { "cookie", global_config.cookie }
     }
   );
-  return read_json<UserPlaylistsResult>(res);
+  return read_json<UserPlaylistsResult>(res.value());
 }
 
 /**
@@ -44,7 +44,7 @@ inline std::string playlist_api_base(const std::string_view sign_json) {
     { "sec-ch-ua-mobile", "?0" },
     { "user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36" },
   };
-  return nodejs::get_decrypt(curl::post(url, sign_data, headers));
+  return nodejs::get_decrypt(curl::post(url, sign_data, headers).value());
 }
 
 
@@ -140,4 +140,36 @@ inline bool delete_song_from_playlist(const int dir_id, const std::uint64_t song
 
   // 返回size > 视为成功
   return res.size() > 200;
+}
+
+inline UserPlaylistsDetailResult get_user_playlists_detail(const std::uint64_t tid, int begin = 0, int size = 20) {
+  constexpr auto sign_data_json = R"(
+    {{
+      "comm": {{
+        "cv": 4747474,
+        "ct": 24,
+        "format": "json",
+        "inCharset": "utf-8",
+        "outCharset": "utf-8",
+        "notice": 0,
+        "platform": "yqq.json",
+        "needNewCode": 1,
+        "g_tk_new_20200303": 549478032,
+        "g_tk": 549478032
+      }},
+      "req_1": {{
+        "module": "music.srfDissInfo.aiDissInfo",
+        "method": "uniform_get_Dissinfo",
+        "param": {{
+            "song_begin": {1},
+            "song_num": {2},
+            "disstid": {0},
+            "ctx": 1
+        }}
+      }}
+    }}
+  )";
+
+  const auto sign_json = std::format(sign_data_json, tid, begin, size);
+  return read_json<UserPlaylistsDetailResult>(playlist_api_base(sign_json));
 }

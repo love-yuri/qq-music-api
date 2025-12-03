@@ -23,37 +23,18 @@ struct DataType {
   std::vector<DisslistType> disslist;
 };
 
-#include <string>
-#include <vector>
-
-struct Req1Type;
-struct DataType;
-struct DirinfoType;
-struct SonglistType;
-struct SingerType;
-struct AlbumType;
-struct MvType;
-struct KsongType;
-struct FileType;
-struct VolumeType;
-struct PayType;
-struct CmtURLBykeyType;
 
 struct DirinfoType {
-    int id;
+    std::uint64_t id;
     int dirid;
     std::string title;
     std::string picurl;
+    int picid;
     std::string desc;
     int listennum;
     int ordernum;
-    int dirtype;
     int songnum;
     int show;
-    int owndir;
-    std::string headurl;
-    std::vector<void*> tag;
-    int role;
 };
 
 struct SingerType {
@@ -103,14 +84,13 @@ struct FileType {
     int b_30s;
     int e_30s;
     int size_96ogg;
-    std::vector<void*> size_360ra;
     int size_dolby;
     std::vector<int> size_new;
 };
 
 struct VolumeType {
     double gain;
-    int peak;
+    double peak;
     double lra;
 };
 
@@ -126,16 +106,15 @@ struct PayType {
 
 struct SonglistType {
     int id;
-    int type;
-    int songtype;
     std::string mid;
     std::string name;
+    std::string label;
     std::string title;
     std::string subtitle;
+    int interval;
     int language;
     int genre;
     int fnote;
-    std::string url;
     std::string time_public;
     std::vector<SingerType> singer;
     AlbumType album;
@@ -144,24 +123,20 @@ struct SonglistType {
     FileType file;
     VolumeType volume;
     PayType pay;
-    int tid;
-    int bpm;
-    std::string ktag;
-    std::string team;
-    std::vector<double> vf;
-    int bf;
 };
 
-struct CmtURLBykeyType {
-    std::string url_key;
-    std::string url_params;
+struct DataType1 {
+    int from_gedan_plaza;
+    DirinfoType dirinfo;
+    std::vector<SonglistType> songlist;
 };
 
 struct Req1Type {
-    DataType data;
+    int code;
+    DataType1 data;
 };
 
-// 歌单详情
+// 用户歌单详情
 export struct UserPlaylistsDetailResult {
     int code{};
     Req1Type req_1;
