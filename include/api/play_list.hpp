@@ -8,6 +8,8 @@ import curl;
 import global_config;
 import nodejs;
 
+namespace qqmusic_api::playlist {
+
 /**
  * 获取用户收藏的歌单，私密歌单需要传递, 使用需要配置qq
  * 如果要获取私人歌单，需要配置 cookie
@@ -172,4 +174,6 @@ inline UserPlaylistsDetailResult get_user_playlists_detail(const std::uint64_t t
 
   const auto sign_json = std::format(sign_data_json, tid, begin, size);
   return read_json<UserPlaylistsDetailResult>(playlist_api_base(sign_json));
+}
+
 }

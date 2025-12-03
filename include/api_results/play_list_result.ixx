@@ -136,15 +136,18 @@ struct Req1Type {
     DataType1 data;
 };
 
+export namespace qqmusic_api::playlist {
 // 用户歌单详情
-export struct UserPlaylistsDetailResult {
-    int code{};
-    Req1Type req_1;
+struct UserPlaylistsDetailResult {
+  int code{};
+  Req1Type req_1;
 };
 
 // 用户歌单列表
-export struct UserPlaylistsResult {
+struct UserPlaylistsResult {
   int code;
   std::string message;
   DataType data;
 };
+
+}

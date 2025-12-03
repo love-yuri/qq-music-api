@@ -9,30 +9,14 @@ import global_config;
 import nodejs;
 import curl;
 
-namespace qqmusic_api {
+namespace qqmusic_api::song {
 
 /**
- * 歌单操作的baseapi
- * @param sign_json
+ * 获取歌曲的下载链接
+ * @param mid 歌曲mid
+ * @param format 目标格式，请确保歌曲有该音源
+ * @return 歌曲下载链接，如果没找到则返回空
  */
-inline std::string song_api_base(const std::string_view sign_json) {
-  if (global_config.qq.empty() || global_config.cookie.empty()) {
-    throw std::runtime_error(std::format("{} 需要用户qq以及cookie!", __FUNCTION__));
-  }
-
-  constexpr std::string_view base_url = "https://u6.y.qq.com/cgi-bin/musics.fcg?_=1763902346841&encoding=ag-1&sign=";
-  const auto url = std::string(base_url) + nodejs::get_sign(sign_json);
-  const auto sign_data = nodejs::get_encrypt(sign_json);
-  const curl::KeyValueList headers = {
-    {"cookie", global_config.cookie},
-    {"accept", "application/octet-stream"},
-    {"accept-language", "zh-CN,zh;q=0.9,en;q=0.8"},
-    {"sec-ch-ua-mobile", "?0"},
-    {"user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"},
-  };
-  return nodejs::get_decrypt(curl::post(url, sign_data, headers).value());
-}
-
 inline std::string get_song_download_url(const std::string_view mid, const SongFileFormat &format = m4a_format) {
   if (global_config.qq.empty() || global_config.cookie.empty()) {
     throw std::runtime_error(std::format("{} 需要用户qq以及cookie!", __FUNCTION__));
@@ -84,7 +68,8 @@ inline std::string get_song_download_url(const std::string_view mid, const SongF
     return sip.front() + midurlinfo.front().purl;
   }
 
-  return res;
+  yerror << "无法找到url，请检查format格式是否正确!";
+  return {};
 }
 
 } // namespace qqmusic_api

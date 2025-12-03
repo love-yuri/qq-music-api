@@ -20,7 +20,7 @@ struct Req1Type {
 
 
 
-export namespace qqmusic_api {
+export namespace qqmusic_api::song {
 
 // 歌曲下载url返回值
 struct SongDownloadUrlResult {
