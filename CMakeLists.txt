@@ -36,17 +36,17 @@ file(GLOB IXX_MODULES
 file(GLOB_RECURSE PROJECT_SOURCES
     CONFIGURE_DEPENDS
     ${IXX_MODULES}
-    "${CMAKE_SOURCE_DIR}/include/*.hpp"
-    "${CMAKE_SOURCE_DIR}/include/api/*.hpp"
-    "${CMAKE_SOURCE_DIR}/include/utils/*.hpp"
-    "${CMAKE_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/api/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/utils/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
 # 使用 STATIC 库
 add_library(${PROJECT_NAME} STATIC ${PROJECT_SOURCES})
 
 # include and link
-target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${PROJECT_NAME} PUBLIC
     CURL::libcurl
     glaze::glaze
@@ -65,16 +65,18 @@ if(MSVC)
   target_compile_options(${PROJECT_NAME} PUBLIC /Zc:preprocessor)
 endif()
 
-# example_main
-add_executable(example_main examples/main.cpp)
-target_link_libraries(example_main PRIVATE ${PROJECT_NAME})
-
 # 自动复制script
 add_custom_command(
-    TARGET example_main POST_BUILD
+    TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_SOURCE_DIR}/script"
-    "$<TARGET_FILE_DIR:example_main>/script"
+    "${CMAKE_CURRENT_SOURCE_DIR}/script"
+    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/script"
     COMMENT "Copying script directory to executable output directory..."
 )
 
+# 禁用qt处理
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    AUTOMOC OFF
+    AUTOUIC OFF
+    AUTORCC OFF
+)
