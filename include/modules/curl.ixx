@@ -1,8 +1,8 @@
 /*
  * @Author: love-yuri yuri2078170658@gmail.com
  * @Date: 2025-11-18 18:27:33
- * @LastEditTime: 2025-11-18 19:21:40
- * @Description:
+ * @LastEditTime: 2025-12-01 20:30:00
+ * @Description: 优化后的 Curl 封装，支持 C++23
  */
 module;
 
@@ -12,88 +12,193 @@ module;
 #include <string>
 #include <string_view>
 #include <format>
+#include <expected>
+#include <optional>
 #include "glaze/glaze.hpp"
 
 export module curl;
 
 /**
- * 构建get请求参数
- * @param params 参数
- * @return encoded后的字符串
+ * RAII 封装 curl_slist
  */
-std::string build_query_string(const std::vector<std::pair<std::string_view, std::string_view>> &params) {
-  std::ostringstream oss;
-  bool first = true;
-  for (const auto &[key, val] : params) {
-    if (!first) {
-      oss << "&";
-    }
-    first = false;
-    oss << curl_easy_escape(nullptr, key.data(), static_cast<int>(key.length()))
-        << "="
-        << curl_easy_escape(nullptr, val.data(), static_cast<int>(val.length()));
+struct CurlSlistDeleter {
+  void operator()(curl_slist *list) const noexcept {
+    if (list) curl_slist_free_all(list);
   }
-  return oss.str();
+};
+using CurlSlistPtr = std::unique_ptr<curl_slist, CurlSlistDeleter>;
+
+/**
+ * RAII 封装 curl escaped string
+ */
+struct CurlFreeDeleter {
+  void operator()(char *ptr) const noexcept {
+    if (ptr) curl_free(ptr);
+  }
+};
+
+using CurlEscapedPtr = std::unique_ptr<char, CurlFreeDeleter>;
+
+/**
+ * 安全的 URL 编码
+ */
+std::optional<std::string> url_encode(CURL *curl, const std::string_view str) {
+  const CurlEscapedPtr escaped (
+    curl_easy_escape(curl, str.data(), static_cast<int>(str.length()))
+  );
+
+  if (!escaped) {
+    return std::nullopt;
+  }
+
+  return std::string(escaped.get());
 }
 
-export class Curl final {
-  std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl{nullptr, curl_easy_cleanup};
+/**
+ * 构建查询字符串
+ */
+std::optional<std::string> build_query_string(
+  CURL *curl,
+  const std::vector<std::pair<std::string_view, std::string_view>> &params
+) {
+  if (params.empty()) {
+    return "";
+  }
 
-  std::string response_data{}; // 结果
+  std::string result;
+  result.reserve(params.size() * 32); // 预分配空间
+
+  for (size_t i = 0; i < params.size(); ++i) {
+    const auto &[key, val] = params[i];
+
+    auto encoded_key = url_encode(curl, key);
+    auto encoded_val = url_encode(curl, val);
+
+    if (!encoded_key || !encoded_val) {
+      return std::nullopt;
+    }
+
+    if (i > 0) {
+      result += "&";
+    }
+    result += std::format("{}={}", *encoded_key, *encoded_val);
+  }
+
+  return result;
+}
+
+/**
+ * 构建 headers
+ */
+CurlSlistPtr build_headers(
+  const std::vector<std::pair<std::string_view, std::string_view>> &headers_map,
+  std::optional<std::string_view> content_type = std::nullopt
+) {
+  curl_slist *raw_headers = nullptr;
+
+  // 添加用户自定义 headers
+  for (const auto &[key, val] : headers_map) {
+    std::string header = std::format("{}: {}", key, val);
+    raw_headers = curl_slist_append(raw_headers, header.c_str());
+  }
+
+  // 添加 Content-Type（如果指定且用户未设置）
+  if (content_type) {
+    bool has_content_type = false;
+    for (const auto &key : headers_map | std::views::keys) {
+      if (key == "Content-Type" || key == "content-type") {
+        has_content_type = true;
+        break;
+      }
+    }
+
+    if (!has_content_type) {
+      const std::string ct = std::format("Content-Type: {}", *content_type);
+      raw_headers = curl_slist_append(raw_headers, ct.c_str());
+    }
+  }
+
+  return CurlSlistPtr(raw_headers);
+}
+
+/**
+ * Curl 请求错误类型
+ */
+export enum class CurlError {
+  InitFailed,
+  PerformFailed,
+  EncodeError,
+  InvalidParameter
+};
+
+export class Curl final {
+  std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl_{nullptr, curl_easy_cleanup};
+  std::string response_data_{}; // 响应数据
 
   // 回调函数，用于接收数据
-  static size_t WriteCallback(const char *contents, const size_t size, const size_t nmemb, Curl *request) {
+  static size_t write_callback(const char *contents, size_t size, size_t nmemb, Curl *request) {
     const size_t total_size = size * nmemb;
-    request->response_data.append(contents, total_size);
-    return total_size;
+    try {
+      request->response_data_.append(contents, total_size);
+      return total_size;
+    } catch (...) {
+      return 0; // 出错时返回 0，curl 会终止传输
+    }
   }
 
 public:
   explicit Curl() = default;
 
-  // 初始化操作
-  bool init() {
-    curl.reset(curl_easy_init());
-    if (!curl) {
+  /**
+   * 初始化操作
+   */
+  [[nodiscard]] bool init() {
+    curl_.reset(curl_easy_init());
+    if (!curl_) {
       yerror << "curl 初始化失败!";
       return false;
     }
 
     // 设置回调函数
-    curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, &Curl::WriteCallback);
-    curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, this);
+    curl_easy_setopt(curl_.get(), CURLOPT_WRITEFUNCTION, &Curl::write_callback);
+    curl_easy_setopt(curl_.get(), CURLOPT_WRITEDATA, this);
 
-    // 设置一些通用选项
-    curl_easy_setopt(curl.get(), CURLOPT_FOLLOWLOCATION, 1L); // 跟随重定向
-    curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT, 30L);       // 30秒超时
+    // 设置通用选项
+    curl_easy_setopt(curl_.get(), CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl_.get(), CURLOPT_TIMEOUT, 30L);
+    curl_easy_setopt(curl_.get(), CURLOPT_SSL_VERIFYPEER, 1L); // 验证 SSL 证书
+    curl_easy_setopt(curl_.get(), CURLOPT_SSL_VERIFYHOST, 2L);
 
     return true;
   }
 
   /**
-   * 调用请求并获取返回值
-   * @return 接收的字符串
+   * 执行请求
+   * @return 成功返回响应数据，失败返回错误
    */
-  std::string &commit() {
-    if (const auto res = curl_easy_perform(curl.get()); res != CURLE_OK) {
+  [[nodiscard]] std::expected<std::string, CurlError> commit() {
+    response_data_.clear(); // 清空旧数据
+
+    if (const auto res = curl_easy_perform(curl_.get()); res != CURLE_OK) {
       yerror << "请求失败: " << curl_easy_strerror(res);
+      return std::unexpected(CurlError::PerformFailed);
     }
 
-    return response_data;
+    return std::move(response_data_);
   }
 
   /**
-   * @return curl指针
+   * @return curl 指针
    */
-  [[nodiscard]] CURL *get() const {
-    return curl.get();
+  [[nodiscard]] CURL *get() const noexcept {
+    return curl_.get();
   }
 
   // 禁止拷贝，允许移动
   Curl(const Curl &) = delete;
   Curl &operator=(const Curl &) = delete;
-  Curl(Curl &&) = default;
-  Curl &operator=(Curl &&) = default;
+  Curl(Curl &&) noexcept = default;
+  Curl &operator=(Curl &&) noexcept = default;
 };
 
 export namespace curl {
@@ -101,49 +206,40 @@ export namespace curl {
 using KeyValueList = std::vector<std::pair<std::string_view, std::string_view>>;
 
 /**
- * get请求
- * @param url url
- * @param headers_map headers
- * @param params_map params
+ * GET 请求
+ * @param url URL
+ * @param headers_map 请求头
+ * @param params_map 查询参数
+ * @return 成功返回响应数据，失败返回错误
  */
-std::string get(const std::string_view url, const KeyValueList &headers_map = {}, const KeyValueList &params_map = {}) {
+[[nodiscard]] std::expected<std::string, CurlError> get(
+  const std::string_view url,
+  const KeyValueList &headers_map = {},
+  const KeyValueList &params_map = {}
+) {
   Curl curl_ptr;
-  if (not curl_ptr.init()) {
-    return {};
+  if (!curl_ptr.init()) {
+    return std::unexpected(CurlError::InitFailed);
   }
 
   const auto curl = curl_ptr.get();
-
   std::string url_str(url);
 
+  // 构建查询参数
   if (!params_map.empty()) {
-    const auto query = build_query_string(params_map);
-    // 判断是否已有 ?
-    if (url_str.find('?') == std::string::npos)
-      url_str += "?" + query;
-    else
-      url_str += "&" + query;
+    const auto query = build_query_string(curl, params_map);
+    if (!query) {
+      return std::unexpected(CurlError::EncodeError);
+    }
+
+    url_str += (url_str.find('?') == std::string::npos ? "?" : "&") + *query;
   }
 
   curl_easy_setopt(curl, CURLOPT_URL, url_str.c_str());
 
-  // header
-  std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)> headers{
-    nullptr,
-    curl_slist_free_all,
-  };
-
+  // 设置 headers
   if (!headers_map.empty()) {
-    curl_slist *raw_headers = nullptr;
-    for (auto &[k, v] : headers_map) {
-      std::string h = std::format("{}: {}", k, v);
-      raw_headers = curl_slist_append(raw_headers, h.c_str());
-    }
-
-    // 设置 content-type
-    raw_headers = curl_slist_append(raw_headers, "Content-Type: application/x-www-form-urlencoded");
-
-    headers.reset(raw_headers);
+    const auto headers = build_headers(headers_map);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers.get());
   }
 
@@ -151,62 +247,33 @@ std::string get(const std::string_view url, const KeyValueList &headers_map = {}
 }
 
 /**
- * post请求
- * @param url url
- * @param data post data
+ * POST 请求（原始数据）
+ * @param url URL
+ * @param data POST 数据
+ * @param headers_map 请求头
+ * @param content_type Content-Type（默认为 application/x-www-form-urlencoded）
+ * @return 成功返回响应数据，失败返回错误
  */
-std::string post(const std::string_view url, const std::string_view data) {
+[[nodiscard]] std::expected<std::string, CurlError> post(
+  const std::string_view url,
+  const std::string_view data,
+  const KeyValueList &headers_map = {},
+  std::string_view content_type = "application/x-www-form-urlencoded"
+) {
   Curl curl_ptr;
-  if (not curl_ptr.init()) {
-    return {};
+  if (!curl_ptr.init()) {
+    return std::unexpected(CurlError::InitFailed);
   }
 
   const auto curl = curl_ptr.get();
 
   curl_easy_setopt(curl, CURLOPT_URL, url.data());
   curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.data());
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, data.size());
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(data.size()));
 
-  return curl_ptr.commit();
-}
-
-/**
- * post请求
- * @param url url
- * @param data post data
- * @param headers_map header
- */
-std::string post(const std::string_view url, const std::string_view data, const KeyValueList &headers_map) {
-  Curl curl_ptr;
-  if (not curl_ptr.init()) {
-    return {};
-  }
-  const auto curl = curl_ptr.get();
-
-  // ----设置 url ----
-  curl_easy_setopt(curl, CURLOPT_URL, url.data());
-
-  // ----设置 data ----
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.data());
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, data.size());
-
-  // ----设置 Headers ----
-  std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)> headers{
-    nullptr,
-    curl_slist_free_all,
-  };
-
-  if (!headers_map.empty()) {
-    curl_slist *raw_headers = nullptr;
-    for (auto &[k, v] : headers_map) {
-      std::string h = std::format("{}: {}", k, v);
-      raw_headers = curl_slist_append(raw_headers, h.c_str());
-    }
-
-    // 设置 content-type
-    raw_headers = curl_slist_append(raw_headers, "Content-Type: application/x-www-form-urlencoded");
-
-    headers.reset(raw_headers);
+  // 设置 headers
+  const auto headers = build_headers(headers_map, content_type);
+  if (headers) {
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers.get());
   }
 
@@ -214,57 +281,46 @@ std::string post(const std::string_view url, const std::string_view data, const 
 }
 
 /**
- * 发起post请求
- * @param url url
+ * POST 请求（表单数据）
+ * @param url URL
  * @param form 表单数据
  * @param headers_map 请求头
+ * @return 成功返回响应数据，失败返回错误
  */
-std::string post(const std::string_view url, const KeyValueList &form, const KeyValueList &headers_map) {
+[[nodiscard]] std::expected<std::string, CurlError> post_form(
+  const std::string_view url,
+  const KeyValueList &form,
+  const KeyValueList &headers_map = {}
+) {
   Curl curl_ptr;
-  if (not curl_ptr.init()) {
-    return {};
+  if (!curl_ptr.init()) {
+    return std::unexpected(CurlError::InitFailed);
   }
 
   const auto curl = curl_ptr.get();
 
-  // ---- 1. 拼接 POST 表单 ----
-  std::string post_data;
-  for (auto &[k, v] : form) {
-    if (!post_data.empty()) {
-      post_data += "&";
-    }
-    post_data += curl_easy_escape(curl, k.data(), 0);
-    post_data += "=";
-    post_data += curl_easy_escape(curl, v.data(), 0);
+  // 构建表单数据
+  const auto post_data = build_query_string(curl, form);
+  if (!post_data) {
+    return std::unexpected(CurlError::EncodeError);
   }
 
-  // ---- 2. 设置 URL ----
-  curl_easy_setopt(curl, CURLOPT_URL, std::string(url).c_str());
-
-  // ---- 3. 设置 POST 数据 ----
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data.c_str());
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, post_data.size());
-
-  // ---- 4. 设置 Headers ----
-  std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)> headers{
-    nullptr,
-    curl_slist_free_all,
-  };
-
-  if (!headers_map.empty()) {
-    curl_slist *raw_headers = nullptr;
-    for (auto &[k, v] : headers_map) {
-      std::string h = std::format("{}: {}", k, v);
-      raw_headers = curl_slist_append(raw_headers, h.c_str());
-    }
-
-    // 设置 content-type
-    raw_headers = curl_slist_append(raw_headers, "Content-Type: application/x-www-form-urlencoded");
-
-    headers.reset(raw_headers);
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers.get());
-  }
-
-  return curl_ptr.commit();
+  return post(url, *post_data, headers_map, "application/x-www-form-urlencoded");
 }
+
+/**
+ * POST JSON 请求
+ * @param url URL
+ * @param json_data JSON 字符串
+ * @param headers_map 请求头
+ * @return 成功返回响应数据，失败返回错误
+ */
+[[nodiscard]] std::expected<std::string, CurlError> post_json(
+  const std::string_view url,
+  const std::string_view json_data,
+  const KeyValueList &headers_map = {}
+) {
+  return post(url, json_data, headers_map, "application/json");
+}
+
 } // namespace curl
