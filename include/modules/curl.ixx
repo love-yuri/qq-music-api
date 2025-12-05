@@ -92,7 +92,7 @@ std::optional<std::string> build_query_string(
  */
 CurlSlistPtr build_headers(
   const std::vector<std::pair<std::string_view, std::string_view>> &headers_map,
-  std::optional<std::string_view> content_type = std::nullopt
+  const std::optional<std::string_view> &content_type = std::nullopt
 ) {
   curl_slist *raw_headers = nullptr;
 
@@ -238,8 +238,9 @@ using KeyValueList = std::vector<std::pair<std::string_view, std::string_view>>;
   curl_easy_setopt(curl, CURLOPT_URL, url_str.c_str());
 
   // 设置 headers
+  CurlSlistPtr headers = nullptr;
   if (!headers_map.empty()) {
-    const auto headers = build_headers(headers_map);
+    headers = build_headers(headers_map);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers.get());
   }
 
