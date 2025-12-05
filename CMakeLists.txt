@@ -62,7 +62,7 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_SCAN_FOR_MODULES ON)
 
 # 编译选项
 if(MSVC)
-  target_compile_options(${PROJECT_NAME} PUBLIC /Zc:preprocessor)
+  target_compile_options(${PROJECT_NAME} PUBLIC /Zc:preprocessor /utf-8)
 endif()
 
 # 自动复制script
