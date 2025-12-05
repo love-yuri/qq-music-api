@@ -21,25 +21,37 @@ constexpr std::string_view crypto_utils_path = "script/crypto_util.js";  // 默�
  * @param cmd js指令
  * @return
  */
-std::string execute(const std::string_view cmd) {
-  FILE* pipe = popen(std::format("node {} {}", cmd, temp_filepath).c_str(), "r");
-  if (!pipe) {
-    yerror << "nodejs 启动失败";
-    return {};
+  std::string execute(const std::string_view cmd) {
+#ifdef _WIN32
+    // Windows: 使用 _popen 和 "w" 模式需要分开处理读写
+    const std::string command = std::format("node {} {}", cmd, temp_filepath);
+    FILE* pipe = _popen(command.c_str(), "r");
+#else
+    FILE* pipe = popen(std::format("node {} {}", cmd, temp_filepath).c_str(), "r");
+#endif
+    if (!pipe) {
+      yerror << "nodejs 启动失败";
+      return {};
+    }
+
+    // 注意: popen 的 "r" 模式只能读取，不能写入
+    // 如果需要向子进程写入数据，需要使用其他方法
+    // std::fprintf(pipe, "yuri is yes");  // 这行在 "r" 模式下不工作
+    // std::fflush(pipe);
+
+    char buffer[1024];
+    std::string result;
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+      result += buffer;
+    }
+#ifdef _WIN32
+    _pclose(pipe);
+#else
+    pclose(pipe);
+#endif
+    return result;
   }
 
-  std::fprintf(pipe, "yuri is yes");
-  std::fflush(pipe);
-
-  char buffer[1024];
-  std::string result;
-  while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-    result += buffer;
-  }
-
-  pclose(pipe);
-  return result;
-}
 
 /**
  * 获取发送需要的sign
