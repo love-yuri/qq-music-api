@@ -4,6 +4,10 @@ module;
 #include "yuri_log.hpp"
 #include <format>
 #include <filesystem>
+#include <fstream>
+#include <thread>
+#include <atomic>
+
 export module nodejs;
 
 namespace fs = std::filesystem;
@@ -13,55 +17,83 @@ namespace fs = std::filesystem;
  */
 export namespace nodejs {
 
-const auto temp_filepath = (fs::temp_directory_path() / "qqmusic_api_nodejs_temp_file").string();
 constexpr std::string_view crypto_utils_path = "script/crypto_util.js";  // 默认加解密脚本位置
 
 /**
- * 执行js脚本, 默认会在最后将temp_file的路径作为参数传递
+ * RAII 临时文件清理
+ */
+struct TempFileGuard {
+  fs::path path;
+  explicit TempFileGuard(fs::path p) : path(std::move(p)) {}
+  ~TempFileGuard() {
+    if (!path.empty()) {
+      std::error_code ec;
+      fs::remove(path, ec);
+    }
+  }
+  TempFileGuard(const TempFileGuard&) = delete;
+  TempFileGuard& operator=(const TempFileGuard&) = delete;
+  TempFileGuard(TempFileGuard&&) = delete;
+  TempFileGuard& operator=(TempFileGuard&&) = delete;
+};
+
+/**
+ * 执行js脚本, 通过唯一临时文件传递数据
  * @param cmd js指令
+ * @param data 传递给js的数据
  * @return
  */
-  std::string execute(const std::string_view cmd) {
-#ifdef _WIN32
-    // Windows: 使用 _popen 和 "w" 模式需要分开处理读写
-    const std::string command = std::format("node {} {}", cmd, temp_filepath);
-    FILE* pipe = _popen(command.c_str(), "r");
-#else
-    FILE* pipe = popen(std::format("node {} {}", cmd, temp_filepath).c_str(), "r");
-#endif
-    if (!pipe) {
-      yerror << "nodejs 启动失败";
+std::string execute(const std::string_view cmd, const std::string_view data) {
+  static std::atomic counter{0};
+  const auto unique_path = (fs::temp_directory_path() / std::format(
+    "qqmusic_node_{}_{}",
+    std::hash<std::thread::id>{}(std::this_thread::get_id()),
+    counter.fetch_add(1))).string();
+  TempFileGuard guard(unique_path);
+
+  {
+    std::ofstream ofs(unique_path, std::ios::binary);
+    if (!ofs) {
+      yerror << "无法创建临时文件";
       return {};
     }
-
-    // 注意: popen 的 "r" 模式只能读取，不能写入
-    // 如果需要向子进程写入数据，需要使用其他方法
-    // std::fprintf(pipe, "yuri is yes");  // 这行在 "r" 模式下不工作
-    // std::fflush(pipe);
-
-    char buffer[1024];
-    std::string result;
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-      result += buffer;
-    }
-#ifdef _WIN32
-    _pclose(pipe);
-#else
-    pclose(pipe);
-#endif
-    return result;
+    ofs.write(data.data(), static_cast<std::streamsize>(data.size()));
+    ofs.flush();
   }
 
+  const auto quoted_path = std::format("\"{}\"", unique_path);
+  const std::string command = std::format("node {} {}", cmd, quoted_path);
+
+#ifdef _WIN32
+  FILE* pipe = _popen(command.c_str(), "rb");
+#else
+  FILE* pipe = popen(command.c_str(), "r");
+#endif
+  if (!pipe) {
+    yerror << "nodejs 启动失败";
+    return {};
+  }
+
+  std::string result;
+  char buffer[4096];
+  size_t n = 0;
+  while ((n = fread(buffer, 1, sizeof(buffer), pipe)) > 0) {
+    result.append(buffer, n);
+  }
+#ifdef _WIN32
+  _pclose(pipe);
+#else
+  pclose(pipe);
+#endif
+  return result;
+}
 
 /**
  * 获取发送需要的sign
  * @param data 发送data
  */
 std::string get_sign(const std::string_view data) {
-  // 写入参数
-  (std::fstream(temp_filepath, std::ios::out) << data).flush();
-  const auto cmd = std::format("{} sign", crypto_utils_path);
-  return execute(cmd);
+  return execute(std::format("{} sign", crypto_utils_path), data);
 }
 
 /**
@@ -69,10 +101,7 @@ std::string get_sign(const std::string_view data) {
  * @param data 发送data
  */
 std::string get_encrypt(const std::string_view data) {
-  // 写入参数
-  (std::fstream(temp_filepath, std::ios::out) << data).flush();
-  const auto cmd = std::format("{} encrypt", crypto_utils_path);
-  return execute(cmd);
+  return execute(std::format("{} encrypt", crypto_utils_path), data);
 }
 
 /**
@@ -80,10 +109,7 @@ std::string get_encrypt(const std::string_view data) {
  * @param data 发送data
  */
 std::string get_decrypt(const std::string_view data) {
-  // 写入参数
-  (std::fstream(temp_filepath, std::ios::out) << data).flush();
-  const auto cmd = std::format("{} decrypt", crypto_utils_path);
-  return execute(cmd);
+  return execute(std::format("{} decrypt", crypto_utils_path), data);
 }
 
 }

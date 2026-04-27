@@ -1422,19 +1422,28 @@ if (args.length == 0) {
 const type = args[0];
 const arg_file_path = args[1];
 
-if (type === 'sign') {
+async function main() {
+  if (type === 'sign') {
     const value = fs.readFileSync(arg_file_path);
     process.stdout.write(ie(JSON.stringify(JSON.parse(value))));
-}
+    return;
+  }
 
-if (type === 'encrypt') {
+  if (type === 'encrypt') {
     const value = fs.readFileSync(arg_file_path);
-    ae(JSON.stringify(JSON.parse(value))).then(e => {
-        process.stdout.write(e);
-    });
-}
+    const e = await ae(JSON.stringify(JSON.parse(value)));
+    process.stdout.write(e);
+    return;
+  }
 
-if (type === 'decrypt') {
+  if (type === 'decrypt') {
     const value = fs.readFileSync(arg_file_path);
     process.stdout.write(se(value));
+    return;
+  }
 }
+
+main().catch(err => {
+  process.stderr.write(String(err) + '\n');
+  process.exit(1);
+});
