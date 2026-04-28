@@ -43,3 +43,4 @@
 build/
 /*-build-*/
 .idea/
+.claude/settings.local.json
