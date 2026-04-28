@@ -43,7 +43,7 @@ file(GLOB_RECURSE CPP_MODULES
 )
 
 # 使用 STATIC 库
-add_library(${PROJECT_NAME} STATIC ${PROJECT_SOURCES})
+add_library(${PROJECT_NAME} STATIC ${CPP_MODULES})
 
 # 仅内部可见，json_utils.hpp 不对外暴露
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -74,7 +74,7 @@ endif()
 function(qq_music_api_copy_scripts TARGET_NAME)
     add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_CURRENT_SOURCE_DIR}/script"
+            "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/script"
             "$<TARGET_FILE_DIR:${TARGET_NAME}>/script"
         COMMENT "Copying qq-music-api script/ to ${TARGET_NAME} output directory..."
     )
