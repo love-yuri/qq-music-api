@@ -1,9 +1,11 @@
+/*
+ * @Description: 全局配置单例（qq号、cookie、登录状态）
+ */
 module;
-#include "yuri_log.hpp"
-#include <filesystem>
-#include <fstream>
-#include <string>
-export module global_config;
+export module qq_music_api:config;
+
+import std;
+import qq_music_api.log;
 
 class GlobalConfig final {
 public:
@@ -36,4 +38,6 @@ public:
   }
 };
 
-export GlobalConfig global_config = {};
+export GlobalConfig qqmusic_api_config = {};
+
+

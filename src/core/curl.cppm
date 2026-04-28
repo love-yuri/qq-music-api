@@ -1,22 +1,12 @@
 /*
- * @Author: love-yuri yuri2078170658@gmail.com
- * @Date: 2025-11-18 18:27:33
- * @LastEditTime: 2025-12-01 20:30:00
- * @Description: 优化后的 Curl 封装，支持 C++23
+ * @Description: Curl 封装，支持 C++23
  */
 module;
-
-#include "yuri_log.hpp"
 #include <curl/curl.h>
-#include <memory>
-#include <string>
-#include <string_view>
-#include <format>
-#include <expected>
-#include <optional>
-#include "glaze/glaze.hpp"
+export module qq_music_api:curl;
 
-export module curl;
+import std;
+import qq_music_api.log;
 
 /**
  * RAII 封装 curl_slist
@@ -36,14 +26,13 @@ struct CurlFreeDeleter {
     if (ptr) curl_free(ptr);
   }
 };
-
 using CurlEscapedPtr = std::unique_ptr<char, CurlFreeDeleter>;
 
 /**
  * 安全的 URL 编码
  */
 std::optional<std::string> url_encode(CURL *curl, const std::string_view str) {
-  const CurlEscapedPtr escaped (
+  const CurlEscapedPtr escaped(
     curl_easy_escape(curl, str.data(), static_cast<int>(str.length()))
   );
 
@@ -66,7 +55,7 @@ std::optional<std::string> build_query_string(
   }
 
   std::string result;
-  result.reserve(params.size() * 32); // 预分配空间
+  result.reserve(params.size() * 32);
 
   for (size_t i = 0; i < params.size(); ++i) {
     const auto &[key, val] = params[i];
@@ -155,7 +144,7 @@ public:
   [[nodiscard]] bool init() {
     curl_.reset(curl_easy_init());
     if (!curl_) {
-      yerror << "curl 初始化失败!";
+      yuri::error("curl 初始化失败!");
       return false;
     }
 
@@ -166,7 +155,7 @@ public:
     // 设置通用选项
     curl_easy_setopt(curl_.get(), CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl_.get(), CURLOPT_TIMEOUT, 30L);
-    curl_easy_setopt(curl_.get(), CURLOPT_SSL_VERIFYPEER, 1L); // 验证 SSL 证书
+    curl_easy_setopt(curl_.get(), CURLOPT_SSL_VERIFYPEER, 1L);
     curl_easy_setopt(curl_.get(), CURLOPT_SSL_VERIFYHOST, 2L);
 
     return true;
@@ -177,10 +166,10 @@ public:
    * @return 成功返回响应数据，失败返回错误
    */
   [[nodiscard]] std::expected<std::string, CurlError> commit() {
-    response_data_.clear(); // 清空旧数据
+    response_data_.clear();
 
     if (const auto res = curl_easy_perform(curl_.get()); res != CURLE_OK) {
-      yerror << "请求失败: " << curl_easy_strerror(res);
+      yuri::error("请求失败: {}", curl_easy_strerror(res));
       return std::unexpected(CurlError::PerformFailed);
     }
 
@@ -207,10 +196,6 @@ using KeyValueList = std::vector<std::pair<std::string_view, std::string_view>>;
 
 /**
  * GET 请求
- * @param url URL
- * @param headers_map 请求头
- * @param params_map 查询参数
- * @return 成功返回响应数据，失败返回错误
  */
 [[nodiscard]] std::expected<std::string, CurlError> get(
   const std::string_view url,
@@ -249,11 +234,6 @@ using KeyValueList = std::vector<std::pair<std::string_view, std::string_view>>;
 
 /**
  * POST 请求（原始数据）
- * @param url URL
- * @param data POST 数据
- * @param headers_map 请求头
- * @param content_type Content-Type（默认为 application/x-www-form-urlencoded）
- * @return 成功返回响应数据，失败返回错误
  */
 [[nodiscard]] std::expected<std::string, CurlError> post(
   const std::string_view url,
@@ -283,10 +263,6 @@ using KeyValueList = std::vector<std::pair<std::string_view, std::string_view>>;
 
 /**
  * POST 请求（表单数据）
- * @param url URL
- * @param form 表单数据
- * @param headers_map 请求头
- * @return 成功返回响应数据，失败返回错误
  */
 [[nodiscard]] std::expected<std::string, CurlError> post_form(
   const std::string_view url,
@@ -300,7 +276,6 @@ using KeyValueList = std::vector<std::pair<std::string_view, std::string_view>>;
 
   const auto curl = curl_ptr.get();
 
-  // 构建表单数据
   const auto post_data = build_query_string(curl, form);
   if (!post_data) {
     return std::unexpected(CurlError::EncodeError);
@@ -311,10 +286,6 @@ using KeyValueList = std::vector<std::pair<std::string_view, std::string_view>>;
 
 /**
  * POST JSON 请求
- * @param url URL
- * @param json_data JSON 字符串
- * @param headers_map 请求头
- * @return 成功返回响应数据，失败返回错误
  */
 [[nodiscard]] std::expected<std::string, CurlError> post_json(
   const std::string_view url,

@@ -1,45 +1,26 @@
 /*
  * @Author: love-yuri yuri2078170658@gmail.com
  * @Date: 2023-09-28 08:49:03
- * @LastEditTime: 2025-11-25 14:37:58
- * @Description: 高性能的日志库基于c++11，支持更多类型和更美观的输出，单文件 13万条/s 单控制台 5万/s
+ * @LastEditTime: 2025-11-02 21:21:54
+ * @Description: 高性能的日志库基于c++11，支持更多类型和更美观的输出，单文件 13万条/s 单控制台 5万条/s
  */
-
-#pragma once
-
-#include <atomic>
-#include <fstream>
-#include <iostream>
-#include <mutex>
-#include <sstream>
-#include <ctime>
-#include <vector>
-#include <chrono>
-#include <map>
-#include <unordered_map>
-#include <set>
-#include <unordered_set>
-#include <list>
-#include <deque>
-#include <array>
-
+module;
 #ifdef _WIN32
 #include <windows.h>
 #endif
+#include <ctime>
+export module qq_music_api.log;
 
-namespace yuri {
+import std;
+
+export namespace yuri {
+
+constexpr std::uint8_t WriteInConsole = 0x0001;                              // 仅写入控制台
+constexpr std::uint8_t WriteInFile = 0x0002;                                 // 仅写入文件
+constexpr std::uint8_t WriteInConsoleAndFile = WriteInConsole | WriteInFile; // 同时写入控制台和文件
 
 class Log final {
 public:
-  // 仅写入控制台
-  constexpr static uint8_t WriteInConsole = 0x0001;
-
-  // 仅写入文件
-  constexpr static uint8_t WriteInFile = 0x0002;
-
-  // 同时写入控制台和文件
-  constexpr static uint8_t WriteInConsoleAndFile = WriteInConsole | WriteInFile;
-
   enum class LogLevel {
     Info,
     Debug,
@@ -48,15 +29,18 @@ public:
   };
 
   constexpr static std::array<const char *, 4> levelStrings = {
-    "INFO", "DEBUG", "WARN", "ERROR"
+    "INFO",
+    "DEBUG",
+    "WARN",
+    "ERROR",
   };
 
   /**
    * 控制设备的写入模式
    * @return 写入模式引用
    */
-  static std::atomic<uint32_t> &logLevelFilter() {
-    static std::atomic<uint32_t> level_filter = static_cast<uint32_t>(LogLevel::Info);
+  static std::atomic<std::uint32_t> &logLevelFilter() {
+    static std::atomic<std::uint32_t> level_filter = std::to_underlying(LogLevel::Info);
     return level_filter;
   }
 
@@ -64,8 +48,8 @@ public:
    * 控制设备的写入模式
    * @return 写入模式引用
    */
-  static std::atomic<uint32_t> &writeMode() {
-    static std::atomic<uint32_t> write_mode = WriteInConsole;
+  static std::atomic<std::uint32_t> &writeMode() {
+    static std::atomic<std::uint32_t> write_mode = WriteInConsole;
     return write_mode;
   }
 
@@ -87,7 +71,7 @@ public:
   }
 
 private:
-  std::ostringstream ost;
+  std::ostringstream ost{};
   using stringRef = const std::string &;
   LogLevel level = LogLevel::Info;
   static constexpr int INDENT_SIZE = 2;
@@ -132,13 +116,12 @@ private:
       localTimeData.tm_min,
       localTimeData.tm_sec,
       now_ms.count(),
-      levelStrings[static_cast<unsigned>(level)]
-    );
+      levelStrings[static_cast<unsigned>(level)]);
 
     // 启用Windows控制台的ANSI转义序列支持
     static std::once_flag once_flag;
     std::call_once(once_flag, [] {
-      #ifdef _WIN32
+#ifdef _WIN32
       // 设置编码
       SetConsoleOutputCP(CP_UTF8);
       SetConsoleCP(CP_UTF8);
@@ -147,10 +130,10 @@ private:
       if (GetConsoleMode(hConsole, &mode)) {
         SetConsoleMode(hConsole, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
       }
-      #endif
+#endif
     });
 
-    return std::string { buf };
+    return std::string{buf};
   }
 
   // 格式化容器的辅助函数
@@ -198,13 +181,13 @@ public:
   }
 
   ~Log() {
-    if (static_cast<uint32_t>(level) < logLevelFilter()) {
+    if (static_cast<std::uint32_t>(level) < logLevelFilter()) {
       return;
     }
 
     const std::string prefix = formatMessage();
 
-    std::lock_guard<std::mutex> lock(getMutex());
+    std::lock_guard lock(getMutex());
 
     if (writeMode() & WriteInConsole) {
       std::ostream &ostream = useStdError() && level == LogLevel::Error ? std::cerr : std::cout;
@@ -222,11 +205,7 @@ public:
           break;
       }
       ostream << prefix;
-      if (level != LogLevel::Error) {
-        ostream << "\x1b[0m" << ost.str() << std::endl;
-      } else {
-        ostream << ost.str() << "\x1b[0m" << std::endl;
-      }
+      (level != LogLevel::Error ? ostream << "\x1b[0m" << ost.str() : ostream << ost.str() << "\x1b[0m") << std::endl;
     }
 
     if (writeMode() & WriteInFile) {
@@ -244,7 +223,7 @@ public:
 
   // 基础类型输出
   template <typename T>
-  Log& operator<<(const T &val) {
+  Log &operator<<(const T &val) {
     ost << val;
     return *this;
   }
@@ -317,23 +296,54 @@ public:
     ost << std::boolalpha << v;
     return *this;
   }
-
 };
 
+/**
+ * 扩展函数
+ */
+template <typename... Args>
+void info(const std::format_string<Args...> fmt, Args&&... args) {
+  Log(Log::LogLevel::Info) << std::format(fmt, std::forward<Args>(args)...);
+}
+
+template <typename T>
+void info(const T && t) {
+  Log(Log::LogLevel::Info) << t;
+}
+
+template <typename... Args>
+void error(const std::format_string<Args...> fmt, Args&&... args) {
+  Log(Log::LogLevel::Error) << std::format(fmt, std::forward<Args>(args)...);
+}
+
+template <typename T>
+void error(const T && t) {
+  Log(Log::LogLevel::Error) << t;
+}
+
+// 明确区分「运行时字符串」和「编译时格式化」
+void error(const std::string_view msg) {
+  Log(Log::LogLevel::Error) << msg;
+}
+
+template <typename... Args>
+void warn(const std::format_string<Args...> fmt, Args&&... args) {
+  Log(Log::LogLevel::Warning) << std::format(fmt, std::forward<Args>(args)...);
+}
+
+template <typename T>
+void warn(const T && t) {
+  Log(Log::LogLevel::Warning) << t;
+}
+
+template <typename... Args>
+void debug(const std::format_string<Args...> fmt, Args&&... args) {
+  Log(Log::LogLevel::Debug) << std::format(fmt, std::forward<Args>(args)...);
+}
+
+template <typename T>
+void debug(const T && t) {
+  Log(Log::LogLevel::Debug) << t;
+}
+
 } // namespace yuri
-
-#ifndef yinfo
-#define yinfo ::yuri::Log(__func__, __LINE__, ::yuri::Log::LogLevel::Info)
-#endif
-
-#ifndef yerror
-#define yerror ::yuri::Log(__func__, __LINE__, ::yuri::Log::LogLevel::Error)
-#endif
-
-#ifndef ywarn
-#define ywarn ::yuri::Log(__func__, __LINE__, ::yuri::Log::LogLevel::Warning)
-#endif
-
-#ifndef ydebug
-#define ydebug ::yuri::Log(__func__, __LINE__, ::yuri::Log::LogLevel::Debug)
-#endif

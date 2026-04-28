@@ -1,38 +1,41 @@
-#pragma once
+/*
+ * @Description: 歌单 API 内部实现（原始 HTTP 请求，不含 JSON 反序列化）
+ */
+module;
+module qq_music_api:playlist_detail;
 
-#include "yuri_log.hpp"
-#include "utils/json_utils.hpp"
+import std;
+import qq_music_api.log;
+import :curl;
+import :config;
+import :nodejs;
 
-import qqmusic.play_list_result;
-import curl;
-import global_config;
-import nodejs;
-
-namespace qqmusic_api::playlist {
+namespace qqmusic_api::playlist::detail {
 
 /**
- * 获取用户收藏的歌单，私密歌单需要传递, 使用需要配置qq
+ * 获取用户收藏的歌单，私密歌单需要传递，使用需要配置qq
  * 如果要获取私人歌单，需要配置 cookie
  * @param size 获取的数量默认11
  */
-inline UserPlaylistsResult get_user_playlists(int size = 11) {
+std::string get_user_playlists(int size = 11) {
   constexpr auto baseUrl = "https://c6.y.qq.com/rsc/fcgi-bin/fcg_user_created_diss?r=1763983092962&_=1763983092962&cv=4747474&ct=24&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=yqq.json&needNewCode=1&uin={0}&g_tk_new_20200303=549478032&g_tk=549478032&hostuin={0}&sin=0&size={1}";
   const auto res = curl::get(
-  std::format(baseUrl, global_config.qq, size),
-  {
+    std::format(baseUrl, qqmusic_api_config.qq, size),
+    {
       { "referer", "https://y.qq.com/" },
-      { "cookie", global_config.cookie }
+      { "cookie", qqmusic_api_config.cookie }
     }
   );
-  return read_json<UserPlaylistsResult>(res.value());
+
+  return res.value();
 }
 
 /**
- * 歌单操作的baseapi
- * @param sign_json
+ * 歌单操作的 base api
+ * @param sign_json 签名 json
  */
-inline std::string playlist_api_base(const std::string_view sign_json) {
-  if (global_config.qq.empty() || global_config.cookie.empty()) {
+std::string playlist_api_base(const std::string_view sign_json) {
+  if (qqmusic_api_config.qq.empty() || qqmusic_api_config.cookie.empty()) {
     throw std::runtime_error(std::format("{} 需要用户qq以及cookie!", __FUNCTION__));
   }
 
@@ -40,7 +43,7 @@ inline std::string playlist_api_base(const std::string_view sign_json) {
   const auto url = std::string(base_url) + nodejs::get_sign(sign_json);
   const auto sign_data = nodejs::get_encrypt(sign_json);
   const curl::KeyValueList headers = {
-    { "cookie", global_config.cookie },
+    { "cookie", qqmusic_api_config.cookie },
     { "accept", "application/octet-stream" },
     { "accept-language", "zh-CN,zh;q=0.9,en;q=0.8" },
     { "sec-ch-ua-mobile", "?0" },
@@ -49,18 +52,14 @@ inline std::string playlist_api_base(const std::string_view sign_json) {
   return nodejs::get_decrypt(curl::post(url, sign_data, headers).value());
 }
 
-
 /**
  * 将歌曲收藏到歌单里，强制要求qq和cookie
  * 单次请求耗时约 270ms
  * @param dir_id 歌单id，使用dirId
  * @param song_id 歌曲id
- * @return 是否添加成功
+ * @return 原始响应字符串
  */
-inline bool add_song_to_playlist(const int dir_id, const std::uint64_t song_id) {
-  if (global_config.qq.empty() || global_config.cookie.empty()) {
-    throw std::runtime_error(std::format("{} 需要用户qq以及cookie!", __FUNCTION__));
-  }
+std::string add_song_to_playlist(const int dir_id, const std::uint64_t song_id) {
   constexpr std::string_view sign_data_json = R"(
     {{
       "comm": {{
@@ -92,10 +91,7 @@ inline bool add_song_to_playlist(const int dir_id, const std::uint64_t song_id) 
   )";
 
   const auto sign_json = std::format(sign_data_json, dir_id, song_id);
-  const auto res = playlist_api_base(sign_json);
-
-  // 返回size > 视为成功
-  return res.size() > 200;
+  return playlist_api_base(sign_json);
 }
 
 /**
@@ -103,12 +99,9 @@ inline bool add_song_to_playlist(const int dir_id, const std::uint64_t song_id) 
  * 单次请求耗时约 270ms
  * @param dir_id 歌单id，使用dirId
  * @param song_id 歌曲id
- * @return 是否移除成功
+ * @return 原始响应字符串
  */
-inline bool delete_song_from_playlist(const int dir_id, const std::uint64_t song_id) {
-  if (global_config.qq.empty() || global_config.cookie.empty()) {
-    throw std::runtime_error(std::format("{} 需要用户qq以及cookie!", __FUNCTION__));
-  }
+std::string delete_song_from_playlist(const int dir_id, const std::uint64_t song_id) {
   constexpr std::string_view sign_data_json = R"(
     {{
       "comm": {{
@@ -138,13 +131,16 @@ inline bool delete_song_from_playlist(const int dir_id, const std::uint64_t song
   )";
 
   const auto sign_json = std::format(sign_data_json, dir_id, song_id);
-  const auto res = playlist_api_base(sign_json);
-
-  // 返回size > 视为成功
-  return res.size() > 200;
+  return playlist_api_base(sign_json);
 }
 
-inline UserPlaylistsDetailResult get_user_playlists_detail(const std::uint64_t tid, int begin = 0, int size = 20) {
+/**
+ * 获取歌单详情
+ * @param tid 歌单tid
+ * @param begin 起始位置
+ * @param size 获取数量
+ */
+std::string get_user_playlists_detail(const std::uint64_t tid, int begin = 0, int size = 20) {
   constexpr auto sign_data_json = R"(
     {{
       "comm": {{
@@ -173,7 +169,7 @@ inline UserPlaylistsDetailResult get_user_playlists_detail(const std::uint64_t t
   )";
 
   const auto sign_json = std::format(sign_data_json, tid, begin, size);
-  return read_json<UserPlaylistsDetailResult>(playlist_api_base(sign_json));
+  return playlist_api_base(sign_json);
 }
 
-}
+} // namespace qqmusic_api::playlist::detail

@@ -1,32 +1,20 @@
+/*
+ * @Description: 歌曲 API 返回值结构体及文件格式定义
+ */
 module;
-#include <string>
-#include <vector>
-export module qqmusic.song_result;
+export module qq_music_api:song_result;
 
-struct MidurlinfoType {
-  std::string filename;
-  std::string purl;
-};
-
-struct DataType {
-  std::vector<std::string>    sip;
-  std::vector<MidurlinfoType> midurlinfo;
-};
-
-struct Req1Type {
-  int      code{};
-  DataType data;
-};
-
-
+import std;
+import :detail;
 
 export namespace qqmusic_api::song {
 
 // 歌曲下载url返回值
 struct SongDownloadUrlResult {
-  Req1Type req_1;
+  SongReq1Type req_1;
 };
 
+// 歌曲文件格式
 struct SongFileFormat {
   std::string_view s; // 前缀，如 "C400"
   std::string_view e; // 扩展名，如 ".m4a"
@@ -37,4 +25,5 @@ constexpr SongFileFormat mp3_128_format = {"M50", "mp3"};
 constexpr SongFileFormat mp3_320_format = {"M80", "mp3"};
 constexpr SongFileFormat ape_format     = {"A00", "ape"};
 constexpr SongFileFormat flac_format    = {"F00", "flac"};
-} // namespace qqmusic_api
+
+} // namespace qqmusic_api::song

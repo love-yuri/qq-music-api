@@ -1,24 +1,26 @@
-#pragma once
+/*
+ * @Description: 歌曲 API 内部实现（原始 HTTP 请求，不含 JSON 反序列化）
+ */
+module;
+module qq_music_api:song_detail;
 
-#include <string_view>
-#include "yuri_log.hpp"
-#include "utils/json_utils.hpp"
+import std;
+import qq_music_api.log;
+import :curl;
+import :config;
+import :nodejs;
+import :song_result;
 
-import qqmusic.song_result;
-import global_config;
-import nodejs;
-import curl;
-
-namespace qqmusic_api::song {
+namespace qqmusic_api::song::detail {
 
 /**
  * 获取歌曲的下载链接
  * @param mid 歌曲mid
  * @param format 目标格式，请确保歌曲有该音源
- * @return 歌曲下载链接，如果没找到则返回空
+ * @return 原始响应字符串
  */
-inline std::string get_song_download_url(const std::string_view mid, const SongFileFormat &format = m4a_format) {
-  if (global_config.qq.empty() || global_config.cookie.empty()) {
+std::string get_song_download_url(const std::string_view mid, const SongFileFormat &format = m4a_format) {
+  if (qqmusic_api_config.qq.empty() || qqmusic_api_config.cookie.empty()) {
     throw std::runtime_error(std::format("{} 需要用户qq以及cookie!", __FUNCTION__));
   }
 
@@ -60,16 +62,10 @@ inline std::string get_song_download_url(const std::string_view mid, const SongF
   const auto url = std::string(base_url) + nodejs::get_sign(sign_json);
   const auto sign_data = nodejs::get_encrypt(sign_json);
   const curl::KeyValueList headers = {
-    {"cookie", global_config.cookie},
+    {"cookie", qqmusic_api_config.cookie},
   };
 
-  const auto res = nodejs::get_decrypt(curl::post(url, sign_data, headers).value());
-  if (const auto [sip, midurlinfo] = read_json<SongDownloadUrlResult>(res).req_1.data; !sip.empty() && !midurlinfo.empty()) {
-    return sip.front() + midurlinfo.front().purl;
-  }
-
-  yerror << "无法找到url，请检查format格式是否正确!";
-  return {};
+  return nodejs::get_decrypt(curl::post(url, sign_data, headers).value());
 }
 
-} // namespace qqmusic_api
+} // namespace qqmusic_api::song::detail
