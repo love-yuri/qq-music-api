@@ -26,15 +26,20 @@ public:
    * 从文件中登录 默认使用 cookie.txt
    */
   void loginFromFile(const std::string_view path = "cookie.txt") {
-    const auto size = std::filesystem::file_size(path);
-    std::ifstream file(path.data(), std::ios::binary);
-    if (!file.is_open()) {
-      throw std::runtime_error(std::format("Failed to open file: {}", path));
-    }
+    try
+    {
+      const auto size = std::filesystem::file_size(path);
+      std::ifstream file(path.data(), std::ios::binary);
+      if (!file.is_open()) {
+        throw std::runtime_error(std::format("Failed to open file: {}", path));
+      }
 
-    std::string content(size, '\0');
-    file.read(content.data(), static_cast<long long>(size));
-    cookie = content;
+      std::string content(size, '\0');
+      file.read(content.data(), static_cast<long long>(size));
+      cookie = content;
+    } catch (std::exception &e) {
+      qqmusic_api::error(std::format("从cookie文件登录失败, msg: {}, path: {}", e.what(), path));
+    }
   }
 };
 
