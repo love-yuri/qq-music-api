@@ -6,7 +6,7 @@ export module qq_music_api:detail;
 
 import std;
 
-// ======================== 歌单域内部结构体 ========================
+export {
 
 struct DisslistType {
   std::string diss_name;   // 歌单名称
@@ -36,7 +36,6 @@ struct DirinfoType {
 };
 
 // ======================== 共享类型（歌手、专辑、文件等） ========================
-
 struct SingerType {
   int id;             // 歌手id
   std::string mid;    // 歌手mid
@@ -154,3 +153,5 @@ struct SongReq1Type {
   int code{};          // 返回码
   SongDataType data;   // 数据
 };
+
+}

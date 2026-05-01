@@ -11,6 +11,7 @@ export import :config;
 export import :nodejs;
 export import :playlist_result;
 export import :song_result;
+export import :detail;
 
 import :log;
 import :detail;
