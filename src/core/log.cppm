@@ -9,11 +9,11 @@ module;
 #include <windows.h>
 #endif
 #include <ctime>
-export module qq_music_api.log;
+export module qq_music_api:log;
 
 import std;
 
-export namespace yuri {
+export namespace qqmusic_api {
 
 constexpr std::uint8_t WriteInConsole = 0x0001;                              // 仅写入控制台
 constexpr std::uint8_t WriteInFile = 0x0002;                                 // 仅写入文件
@@ -346,4 +346,4 @@ void debug(const T && t) {
   Log(Log::LogLevel::Debug) << t;
 }
 
-} // namespace yuri
+} // namespace qqmusic_api

@@ -1,8 +1,7 @@
 #pragma once
 
+#include <iostream>
 #include "glaze/glaze.hpp"
-import std;
-import qq_music_api.log;
 
 /**
  * 解析选项
@@ -36,6 +35,6 @@ T read_json(const std::string_view json) {
     return res.value();
   }
 
-  yuri::error("json反序列化失败：{}", glz::format_error(res, json));
+  std::cerr << "json反序列化失败：" << glz::format_error(res, json) << std::endl;
   return T{};
 }

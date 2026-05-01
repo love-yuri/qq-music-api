@@ -2,6 +2,7 @@
  * @Description: 聚合模块 — re-export 所有子模块，提供 JSON 反序列化后的公开 API
  */
 module;
+#pragma GCC diagnostic ignored "-Wimport-implementation-partition-unit-in-interface-unit"
 #include "core/json_utils.hpp"
 export module qq_music_api;
 
@@ -11,6 +12,7 @@ export import :nodejs;
 export import :playlist_result;
 export import :song_result;
 
+import :log;
 import :detail;
 import :playlist_detail;
 import :song_detail;
@@ -74,7 +76,7 @@ std::string get_song_download_url(const std::string_view mid, const SongFileForm
     return sip.front() + midurlinfo.front().purl;
   }
 
-  yuri::error("无法找到url，请检查format格式是否正确!");
+  qqmusic_api::error("无法找到url，请检查format格式是否正确!");
   return {};
 }
 

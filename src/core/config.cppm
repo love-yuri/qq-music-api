@@ -5,7 +5,7 @@ module;
 export module qq_music_api:config;
 
 import std;
-import qq_music_api.log;
+import :log;
 
 class GlobalConfig final {
 public:

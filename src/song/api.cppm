@@ -5,7 +5,7 @@ module;
 module qq_music_api:song_detail;
 
 import std;
-import qq_music_api.log;
+import :log;
 import :curl;
 import :config;
 import :nodejs;

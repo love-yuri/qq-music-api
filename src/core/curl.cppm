@@ -6,7 +6,7 @@ module;
 export module qq_music_api:curl;
 
 import std;
-import qq_music_api.log;
+import :log;
 
 /**
  * RAII 封装 curl_slist
@@ -144,7 +144,7 @@ public:
   [[nodiscard]] bool init() {
     curl_.reset(curl_easy_init());
     if (!curl_) {
-      yuri::error("curl 初始化失败!");
+      qqmusic_api::error("curl 初始化失败!");
       return false;
     }
 
@@ -169,7 +169,7 @@ public:
     response_data_.clear();
 
     if (const auto res = curl_easy_perform(curl_.get()); res != CURLE_OK) {
-      yuri::error("请求失败: {}", curl_easy_strerror(res));
+      qqmusic_api::error("请求失败: {}", curl_easy_strerror(res));
       return std::unexpected(CurlError::PerformFailed);
     }
 

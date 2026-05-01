@@ -2,14 +2,14 @@
  * @Description: Node.js 子进程桥接，调用 script/crypto_util.js 执行 sign/encrypt/decrypt
  */
 module;
+#include <cstdio>
 #ifdef _WIN32
 #include <windows.h>
-#include <cstdio>
 #endif
 export module qq_music_api:nodejs;
 
 import std;
-import qq_music_api.log;
+import :log;
 
 namespace fs = std::filesystem;
 
@@ -55,7 +55,7 @@ std::string execute(const std::string_view cmd, const std::string_view data) {
   {
     std::ofstream ofs(unique_path, std::ios::binary);
     if (!ofs) {
-      yuri::error("无法创建临时文件");
+      qqmusic_api::error("无法创建临时文件");
       return {};
     }
     ofs.write(data.data(), static_cast<std::streamsize>(data.size()));
@@ -71,7 +71,7 @@ std::string execute(const std::string_view cmd, const std::string_view data) {
   FILE *pipe = popen(command.c_str(), "r");
 #endif
   if (!pipe) {
-    yuri::error("nodejs 启动失败");
+    qqmusic_api::error("nodejs 启动失败");
     return {};
   }
 
