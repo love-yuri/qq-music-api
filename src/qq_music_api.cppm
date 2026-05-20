@@ -72,13 +72,27 @@ export namespace qqmusic_api::song {
  * @return 歌曲下载链接，如果没找到则返回空
  */
 std::string get_song_download_url(const std::string_view mid, const SongFileFormat &format = m4a_format) {
-  const auto res = detail::get_song_download_url(mid, format);
-  if (const auto [sip, midurlinfo] = read_json<SongDownloadUrlResult>(res).req_1.data; !sip.empty() && !midurlinfo.empty()) {
-    return sip.front() + midurlinfo.front().purl;
-  }
+  return detail::resolve_song_download_url(mid, format);
+}
 
-  qqmusic_api::error("无法找到url，请检查format格式是否正确!");
-  return {};
+/**
+ * 查找歌曲本地缓存文件
+ * @param song 歌曲下载信息
+ * @param cache_dir 缓存目录，默认 musics
+ * @return 已存在的缓存文件路径，未命中时返回空路径
+ */
+std::filesystem::path cached_song_path(const SongDownloadInfo &song, const std::filesystem::path &cache_dir = "musics") {
+  return detail::cached_song_path(song, cache_dir);
+}
+
+/**
+ * 下载歌曲文件到本地缓存
+ * @param song 歌曲下载信息
+ * @param cache_dir 缓存目录，默认 musics
+ * @return 可播放的本地文件路径，失败时返回空路径
+ */
+std::filesystem::path download_song_file(const SongDownloadInfo &song, const std::filesystem::path &cache_dir = "musics") {
+  return detail::download_song_file(song, cache_dir);
 }
 
 } // namespace qqmusic_api::song
