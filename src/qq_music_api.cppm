@@ -76,23 +76,13 @@ std::string get_song_download_url(const std::string_view mid, const SongFileForm
 }
 
 /**
- * 查找歌曲本地缓存文件
- * @param song 歌曲下载信息
- * @param cache_dir 缓存目录，默认 musics
- * @return 已存在的缓存文件路径，未命中时返回空路径
+ * 下载已解析的歌曲 URL 到指定文件
+ * @param url 歌曲下载 URL
+ * @param path 输出文件路径
+ * @return 下载成功时返回 true，否则返回 false
  */
-std::filesystem::path cached_song_path(const SongDownloadInfo &song, const std::filesystem::path &cache_dir = "musics") {
-  return detail::cached_song_path(song, cache_dir);
-}
-
-/**
- * 下载歌曲文件到本地缓存
- * @param song 歌曲下载信息
- * @param cache_dir 缓存目录，默认 musics
- * @return 可播放的本地文件路径，失败时返回空路径
- */
-std::filesystem::path download_song_file(const SongDownloadInfo &song, const std::filesystem::path &cache_dir = "musics") {
-  return detail::download_song_file(song, cache_dir);
+bool download_song_file(const std::string_view url, const std::filesystem::path &path) {
+  return detail::download_song_file(url, path);
 }
 
 } // namespace qqmusic_api::song

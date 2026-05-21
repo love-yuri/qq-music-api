@@ -76,6 +76,13 @@ std::optional<std::string> build_query_string(
   return result;
 }
 
+size_t write_file_callback(const char *contents, const size_t size, const size_t nmemb, void *user) {
+  auto *output = static_cast<std::ofstream *>(user);
+  const size_t total_size = size * nmemb;
+  output->write(contents, static_cast<std::streamsize>(total_size));
+  return output->good() ? total_size : 0;
+}
+
 /**
  * 构建 headers
  */
@@ -230,6 +237,40 @@ using KeyValueList = std::vector<std::pair<std::string_view, std::string_view>>;
   }
 
   return curl_ptr.commit();
+}
+
+/**
+ * GET 下载到文件
+ */
+[[nodiscard]] bool download_to_file(
+  const std::string_view url,
+  const std::filesystem::path &path,
+  const KeyValueList &headers_map = {}
+) {
+  std::ofstream output(path, std::ios::binary);
+  if (!output.is_open()) {
+    qqmusic_api::error("打开下载文件失败: {}", path.string());
+    return false;
+  }
+
+  Curl curl_ptr;
+  if (!curl_ptr.init()) {
+    return false;
+  }
+
+  const auto curl = curl_ptr.get();
+  const std::string url_str(url);
+  curl_easy_setopt(curl, CURLOPT_URL, url_str.c_str());
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_file_callback);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &output);
+
+  CurlSlistPtr headers = nullptr;
+  if (!headers_map.empty()) {
+    headers = build_headers(headers_map);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers.get());
+  }
+
+  return curl_ptr.commit().has_value();
 }
 
 /**

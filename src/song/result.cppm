@@ -20,17 +20,6 @@ struct SongFileFormat {
   std::string_view e; // 扩展名，如 ".m4a"
 };
 
-// 歌曲下载所需的基础信息
-struct SongDownloadInfo {
-  std::string mid;      // 歌曲 mid
-  std::string title;    // 歌曲标题
-  std::string artist;   // 歌手名
-  bool has_flac{};      // 是否存在 flac 音源
-  bool has_ape{};       // 是否存在 ape 音源
-  bool has_mp3_320{};   // 是否存在 320k mp3 音源
-  bool has_mp3_128{};   // 是否存在 128k mp3 音源
-};
-
 constexpr SongFileFormat m4a_format     = {"C40", "m4a"};
 constexpr SongFileFormat mp3_128_format = {"M50", "mp3"};
 constexpr SongFileFormat mp3_320_format = {"M80", "mp3"};
