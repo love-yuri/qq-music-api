@@ -17,6 +17,7 @@ import :log;
 import :detail;
 import :playlist_detail;
 import :song_detail;
+import :album_detail;
 
 export namespace qqmusic_api::playlist {
 
@@ -86,3 +87,27 @@ bool download_song_file(const std::string_view url, const std::filesystem::path 
 }
 
 } // namespace qqmusic_api::song
+
+export namespace qqmusic_api::album {
+
+/**
+ * 获取专辑封面 URL
+ * @param size 图片尺寸
+ * @param album_mid 专辑 mid
+ * @return 专辑封面 URL
+ */
+std::string get_album_cover_url(const int size, const std::string_view album_mid) {
+  return detail::get_album_cover_url(size, album_mid);
+}
+
+/**
+ * 获取专辑封面图片链接
+ * @param size 图片尺寸
+ * @param album_mid 专辑 mid
+ * @return 图片链接
+ */
+std::string get_album_cover(const int size, const std::string_view album_mid) {
+  return detail::get_album_cover(size, album_mid);
+}
+
+} // namespace qqmusic_api::album
