@@ -41,6 +41,7 @@ file(GLOB_RECURSE CPP_MODULES
     ${PROJECT_SOURCE_DIR}/src/playlist/*.cppm
     ${PROJECT_SOURCE_DIR}/src/song/*.cppm
     ${PROJECT_SOURCE_DIR}/src/album/*.cppm
+    ${PROJECT_SOURCE_DIR}/src/user/*.cppm
 )
 
 # 使用 STATIC 库

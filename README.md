@@ -44,6 +44,10 @@ int main() {
     yuri::info("歌单: {} (tid: {})", pl.diss_name, pl.tid);
   }
 
+  // 获取当前登录用户信息
+  auto user_info = qqmusic_api::user::get_user_info();
+  yuri::info("昵称: {}", user_info.data.creator.nick);
+
   // 获取歌单详情
   auto detail = qqmusic_api::playlist::get_user_playlists_detail(tid, 0, 20);
   for (auto &song : detail.req_1.data.songlist) {
@@ -58,6 +62,12 @@ int main() {
 ```
 
 ## API 列表
+
+### 命名空间 `qqmusic_api::user`
+
+| 函数 | 说明 |
+|------|------|
+| `get_user_info()` | 获取当前登录用户信息（需 cookie） |
 
 ### 命名空间 `qqmusic_api::playlist`
 

@@ -11,6 +11,7 @@ export import :config;
 export import :nodejs;
 export import :playlist_result;
 export import :song_result;
+export import :user_result;
 export import :detail;
 
 import :log;
@@ -18,6 +19,7 @@ import :detail;
 import :playlist_detail;
 import :song_detail;
 import :album_detail;
+import :user_detail;
 
 export namespace qqmusic_api::playlist {
 
@@ -111,3 +113,15 @@ std::string get_album_cover(const int size, const std::string_view album_mid) {
 }
 
 } // namespace qqmusic_api::album
+
+export namespace qqmusic_api::user {
+
+/**
+ * 获取当前登录用户信息
+ * @return 用户信息
+ */
+UserInfoResult get_user_info() {
+  return read_json<UserInfoResult>(detail::get_user_info());
+}
+
+} // namespace qqmusic_api::user
