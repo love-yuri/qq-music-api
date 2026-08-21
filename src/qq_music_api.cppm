@@ -2,8 +2,9 @@
  * @Description: 聚合模块 — re-export 所有子模块，提供 JSON 反序列化后的公开 API
  */
 module;
+#ifdef __UNIX__
 #pragma GCC diagnostic ignored "-Wimport-implementation-partition-unit-in-interface-unit"
-#include "core/json_utils.hpp"
+#endif
 export module qq_music_api;
 
 export import :curl;
@@ -29,7 +30,7 @@ export namespace qqmusic_api::playlist {
  * @param size 获取的数量默认11
  */
 UserPlaylistsResult get_user_playlists(const int size = 11) {
-  return read_json<UserPlaylistsResult>(detail::get_user_playlists(size));
+  return detail::get_user_playlists(size);
 }
 
 /**
@@ -60,8 +61,8 @@ bool delete_song_from_playlist(const int dir_id, const std::uint64_t song_id) {
  * @param begin 起始位置
  * @param size 获取数量
  */
-UserPlaylistsDetailResult get_user_playlists_detail(const std::uint64_t tid, int begin = 0, int size = 20) {
-  return read_json<UserPlaylistsDetailResult>(detail::get_user_playlists_detail(tid, begin, size));
+UserPlaylistsDetailResult get_user_playlists_detail(const std::uint64_t tid, const int begin = 0, const int size = 20) {
+  return detail::get_user_playlists_detail(tid, begin, size);
 }
 
 } // namespace qqmusic_api::playlist
@@ -121,7 +122,7 @@ export namespace qqmusic_api::user {
  * @return 用户信息
  */
 UserInfoResult get_user_info() {
-  return read_json<UserInfoResult>(detail::get_user_info());
+  return detail::get_user_info();
 }
 
 } // namespace qqmusic_api::user

@@ -1,7 +1,8 @@
 /*
- * @Description: 歌单 API 内部实现（原始 HTTP 请求，不含 JSON 反序列化）
+ * @Description: 歌单 API 内部实现
  */
 module;
+#include "core/json_utils.hpp"
 module qq_music_api:playlist_detail;
 
 import std;
@@ -9,6 +10,7 @@ import :log;
 import :curl;
 import :config;
 import :nodejs;
+import :playlist_result;
 
 namespace qqmusic_api::playlist::detail {
 
@@ -16,18 +18,16 @@ namespace qqmusic_api::playlist::detail {
  * 获取用户收藏的歌单，私密歌单需要传递，使用需要配置qq
  * 如果要获取私人歌单，需要配置 cookie
  * @param size 获取的数量默认11
+ * @return 用户歌单列表
  */
-std::string get_user_playlists(int size = 11) {
+UserPlaylistsResult get_user_playlists(const int size = 11) {
   constexpr auto baseUrl = "https://c6.y.qq.com/rsc/fcgi-bin/fcg_user_created_diss?r=1763983092962&_=1763983092962&cv=4747474&ct=24&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=yqq.json&needNewCode=1&uin={0}&g_tk_new_20200303=549478032&g_tk=549478032&hostuin={0}&sin=0&size={1}";
   const auto res = curl::get(
     std::format(baseUrl, qqmusic_api_config.qq, size),
-    {
-      { "referer", "https://y.qq.com/" },
-      { "cookie", qqmusic_api_config.cookie }
-    }
-  );
+    {{"referer", "https://y.qq.com/"},
+     {"cookie", qqmusic_api_config.cookie}});
 
-  return res.value();
+  return read_json<UserPlaylistsResult>(res.value());
 }
 
 /**
@@ -43,11 +43,11 @@ std::string playlist_api_base(const std::string_view sign_json) {
   const auto url = std::string(base_url) + nodejs::get_sign(sign_json);
   const auto sign_data = nodejs::get_encrypt(sign_json);
   const curl::KeyValueList headers = {
-    { "cookie", qqmusic_api_config.cookie },
-    { "accept", "application/octet-stream" },
-    { "accept-language", "zh-CN,zh;q=0.9,en;q=0.8" },
-    { "sec-ch-ua-mobile", "?0" },
-    { "user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36" },
+    {"cookie", qqmusic_api_config.cookie},
+    {"accept", "application/octet-stream"},
+    {"accept-language", "zh-CN,zh;q=0.9,en;q=0.8"},
+    {"sec-ch-ua-mobile", "?0"},
+    {"user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"},
   };
   return nodejs::get_decrypt(curl::post(url, sign_data, headers).value());
 }
@@ -139,8 +139,9 @@ std::string delete_song_from_playlist(const int dir_id, const std::uint64_t song
  * @param tid 歌单tid
  * @param begin 起始位置
  * @param size 获取数量
+ * @return 歌单详情
  */
-std::string get_user_playlists_detail(const std::uint64_t tid, int begin = 0, int size = 20) {
+UserPlaylistsDetailResult get_user_playlists_detail(const std::uint64_t tid, const int begin = 0, const int size = 20) {
   constexpr auto sign_data_json = R"(
     {{
       "comm": {{
@@ -169,7 +170,7 @@ std::string get_user_playlists_detail(const std::uint64_t tid, int begin = 0, in
   )";
 
   const auto sign_json = std::format(sign_data_json, tid, begin, size);
-  return playlist_api_base(sign_json);
+  return read_json<UserPlaylistsDetailResult>(playlist_api_base(sign_json));
 }
 
 } // namespace qqmusic_api::playlist::detail
